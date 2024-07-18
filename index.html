@@ -1,0 +1,82 @@
+<html>
+<head>
+    <title>SSC swim timeslots</title>
+</head>
+<body bgcolor="black" text="gray">
+    <h3><b>Datums stunda:(aizņemts/kopā)</b></h3>
+    <div id="out"></div>
+    <script>
+        const divOut = document.getElementById('out');
+
+        async function fetchDay(day) {
+            try {
+                const response = await fetch("https://bookla.com/api/v3/timeslots", {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Language": "en",
+                        "Connection": "keep-alive",
+                        "Content-Type": "application/json",
+                        "Origin": "https://widget.bookla.com",
+                        "Referer": "https://widget.bookla.com/",
+                        "Sec-Fetch-Dest": "empty",
+                        "Sec-Fetch-Mode": "cors",
+                        "Sec-Fetch-Site": "same-site",
+                        "Sec-GPC": "1",
+                        "SpendoApp": "Web/Widget",
+                        "SpendoDeviceID": "e20d129b-e209-4b4a-9aae-1703eb14c224",
+                        "SpendoSig": "bf8358a8feeb0ec0124df0506975a3a12636cd29a13de917300e010af4a7f6fe",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+                        "sec-ch-ua": `"Chromium";v="112", "Brave";v="112", "Not:A-Brand";v="99"`,
+                        "sec-ch-ua-mobile": "?0",
+                        "sec-ch-ua-platform": "Windows"
+                    },
+                    body: JSON.stringify({
+                        "companyId": "042fb9ab-5dd4-4b78-a8ac-d1229322e93d",
+                        "date": day + "T00:00:00.000Z",
+                        "slotParams": {
+                            "serviceId": "09b3b303-fb77-45d9-bcf2-1434b672f679",
+                            "spots": 1,
+                            "tickets": [{
+                                "ticketId": "ecbf6d32-f517-40b1-abc6-3e263ffb2d86",
+                                "spots": 1
+                            }]
+                        }
+                    })
+                });
+                const data = await response.json();
+                let content = day;
+                data.calendars.forEach(calendar => {
+                    calendar.timeslots.forEach(ts => {
+                        const startTime = new Date(ts.startTime);
+                        const formattedTime = startTime.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            hour12: false
+                        }).slice(0, 2); // Slicing to show only the hour
+                        content += `&nbsp;&nbsp;&nbsp;${formattedTime}:(${ts.spotsTaken}/${ts.spotsTotal})`;
+                    });
+                });
+                divOut.innerHTML += content + "<br>";
+            } catch (error) {
+                console.error("Request error:", error);
+                divOut.innerHTML += `Error fetching data for ${day}<br>`;
+            }
+        }
+
+        async function fetchAllDays() {
+            const today = new Date();
+            for (let i = 0; i < 3; i++) {
+                const day = new Date(today);
+                day.setDate(today.getDate() + i);
+                await fetchDay(day.toISOString().slice(0, 10));
+            }
+        }
+
+        fetchAllDays().catch(error => {
+            console.error("Error in fetching all days", error);
+        });
+    </script>
+	
+    <!-- Code updated: 2024.07.18 -->	
+</body>
+</html>
