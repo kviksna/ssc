@@ -4,6 +4,7 @@
 </head>
 <body bgcolor="black" text="gray">
     <h3><b>Datums stunda:(aizņemts/kopā)</b></h3>
+	<br>
     <div id="out"></div>
     <script>
         const divOut = document.getElementById('out');
@@ -45,7 +46,7 @@
                     })
                 });
                 const data = await response.json();
-                let content = day;
+                let content = `<b>`+ day +`</b>`;
                 data.calendars.forEach(calendar => {
                     calendar.timeslots.forEach(ts => {
                         const startTime = new Date(ts.startTime);
@@ -56,7 +57,7 @@
                         content += `&nbsp;&nbsp;&nbsp;${formattedTime}:(${ts.spotsTaken}/${ts.spotsTotal})`;
                     });
                 });
-                divOut.innerHTML += content + "<br>";
+                divOut.innerHTML += content + "<br><br>";
             } catch (error) {
                 console.error("Request error:", error);
                 divOut.innerHTML += `Error fetching data for ${day}<br>`;
@@ -87,6 +88,7 @@
   gtag('config', 'G-EKPPDFPDQJ');
 </script>
 	
-    <!-- Code updated: 2024.10.25 -->	
+    <!-- Code updated: 2025.10.21 -->	
 </body>
 </html>
+
