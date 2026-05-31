@@ -2,7 +2,7 @@
 	<title>SSC swim timeslots</title>
 </head>
 <body bgcolor=black text=gray>
-<h3><b>Datums stunda:(pieejams)</b></h3>
+<h3><b>Datums stunda:(rezervēts/kopā)</b></h3>
 <div id="out"></div>
 <script>
 const divOut = document.getElementById('out');
@@ -47,10 +47,12 @@ function fetchDay(day) {
         if (!start) return;
         const hour = new Date(start).getUTCHours() + 3;
         let info;
-        if (ts.spotsTaken !== undefined && ts.spotsTotal !== undefined)
+        if (ts.spotsTotal !== undefined && ts.spotsTotal !== null)
+          info = (ts.bookedSpots ?? 0) + "/" + ts.spotsTotal;
+        else if (ts.totalSpots !== undefined && ts.totalSpots !== null)
+          info = (ts.bookedSpots ?? 0) + "/" + ts.totalSpots;
+        else if (ts.spotsTaken !== undefined && ts.spotsTotal !== undefined)
           info = ts.spotsTaken + "/" + ts.spotsTotal;
-        else if (ts.spotsAvailable !== undefined)
-          info = ts.spotsAvailable;
         else if (ts.available !== undefined)
           info = ts.available;
         else
