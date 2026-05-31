@@ -1,95 +1,77 @@
-<html>
 <head>
-    <title>SSC swim timeslots</title>
+	<title>SSC swim timeslots</title>
 </head>
-<body bgcolor="black" text="gray">
-    <b>Datums stunda:(aizņemts/kopā)</b>
-	<br>
-    <div id="out"></div>
-    <script>
-        const divOut = document.getElementById('out');
-
-        async function fetchDay(day) {
-            try {
-                const response = await fetch("https://bookla.com/api/v3/timeslots", {
-                    method: "POST",
-                    headers: {
-                        "Accept": "application/json, text/plain, */*",
-                        "Accept-Language": "en",
-                        "Connection": "keep-alive",
-                        "Content-Type": "application/json",
-                        "Origin": "https://widget.bookla.com",
-                        "Referer": "https://widget.bookla.com/",
-                        "Sec-Fetch-Dest": "empty",
-                        "Sec-Fetch-Mode": "cors",
-                        "Sec-Fetch-Site": "same-site",
-                        "Sec-GPC": "1",
-                        "SpendoApp": "Web/Widget",
-                        "SpendoDeviceID": "e20d129b-e209-4b4a-9aae-1703eb14c224",
-                        "SpendoSig": "bf8358a8feeb0ec0124df0506975a3a12636cd29a13de917300e010af4a7f6fe",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-                        "sec-ch-ua": `"Chromium";v="112", "Brave";v="112", "Not:A-Brand";v="99"`,
-                        "sec-ch-ua-mobile": "?0",
-                        "sec-ch-ua-platform": "Windows"
-                    },
-                    body: JSON.stringify({
-                        "companyId": "042fb9ab-5dd4-4b78-a8ac-d1229322e93d",
-                        "date": day + "T00:00:00.000Z",
-                        "slotParams": {
-                            "serviceId": "09b3b303-fb77-45d9-bcf2-1434b672f679",
-                            "spots": 1,
-                            "tickets": [{
-                                "ticketId": "ecbf6d32-f517-40b1-abc6-3e263ffb2d86",
-                                "spots": 1
-                            }]
-                        }
-                    })
-                });
-                const data = await response.json();
-                let content = `<b>`+ day +`</b>`;
-                data.calendars.forEach(calendar => {
-                    calendar.timeslots.forEach(ts => {
-                        const startTime = new Date(ts.startTime);
-                        const formattedTime = startTime.toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            hour12: false
-                        }).slice(0, 2); // Slicing to show only the hour
-                        content += `&nbsp;&nbsp;&nbsp;${formattedTime}:(${ts.spotsTaken}/${ts.spotsTotal})`;
-                    });
-                });
-                divOut.innerHTML += content + "<br><br>";
-            } catch (error) {
-                console.error("Request error:", error);
-                divOut.innerHTML += `Error fetching data for ${day}<br>`;
-            }
-        }
-
-        async function fetchAllDays() {
-            const today = new Date();
-            for (let i = 0; i < 3; i++) {
-                const day = new Date(today);
-                day.setDate(today.getDate() + i);
-                await fetchDay(day.toISOString().slice(0, 10));
-            }
-        }
-
-        fetchAllDays().catch(error => {
-            console.error("Error in fetching all days", error);
-        });
-    </script>
-
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-EKPPDFPDQJ"></script>
+<body bgcolor=black text=gray>
+<h3><b>Datums stunda:(pieejams)</b></h3>
+<div id="out"></div>
 <script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+const divOut = document.getElementById('out');
 
-  gtag('config', 'G-EKPPDFPDQJ');
+function fetchDay(day) {
+  // day is YYYY-MM-DD in local time (UTC+3). The API uses UTC bounds.
+  const from = new Date(day + "T00:00:00+03:00").toISOString();
+  const toD  = new Date(day + "T00:00:00+03:00");
+  toD.setUTCDate(toD.getUTCDate() + 1);
+  const to = toD.toISOString();
+
+  fetch("https://eu.bookla.com/api/v1/client/companies/042fb9ab-5dd4-4b78-a8ac-d1229322e93d/services/09b3b303-fb77-45d9-bcf2-1434b672f679/times", {
+    method: "POST",
+    mode: "cors",
+    credentials: "omit",
+    headers: {
+      "accept": "*/*",
+      "content-type": "application/json",
+      "x-api-key": "gCLUIxLBgnfRK9A6CIGPtJXmqG09COpIEBFm"
+    },
+    body: JSON.stringify({
+      from: from,
+      to: to,
+      resourceIDs: [],
+      tickets: { "c9cd2168-2287-492b-914e-c4b01bd10ebc": 1 }
+    })
+  })
+    .then(response => response.json())
+    .then(data => {
+      divOut.innerHTML += day;
+
+      // Response may be { times: [...] }, { data: [...] }, or grouped by resource.
+      let slots = [];
+      if (Array.isArray(data)) slots = data;
+      else if (Array.isArray(data.times)) slots = data.times;
+      else if (data.times && typeof data.times === 'object') {
+        Object.values(data.times).forEach(arr => { if (Array.isArray(arr)) slots = slots.concat(arr); });
+      } else if (Array.isArray(data.data)) slots = data.data;
+
+      slots.forEach(ts => {
+        const start = ts.startTime || ts.start || ts.time;
+        if (!start) return;
+        const hour = new Date(start).getUTCHours() + 3;
+        let info;
+        if (ts.spotsTaken !== undefined && ts.spotsTotal !== undefined)
+          info = ts.spotsTaken + "/" + ts.spotsTotal;
+        else if (ts.spotsAvailable !== undefined)
+          info = ts.spotsAvailable;
+        else if (ts.available !== undefined)
+          info = ts.available;
+        else
+          info = "?";
+        divOut.innerHTML += "&nbsp;&nbsp;&nbsp;" + hour + ":(" + info + ")";
+      });
+      divOut.innerHTML += "\n<br>";
+    })
+    .catch(error => {
+      console.error("Request error:", error);
+    });
+}// EO fetchDay(day)
+
+const today = new Date();
+for (let i = 0; i < 3; i++) {
+  const d = new Date(today);
+  d.setDate(today.getDate() + i);
+  const day = d.toISOString().slice(0, 10);
+  setTimeout(() => fetchDay(day), i * 1000);
+}
+
 </script>
-	
-    <!-- Code updated: 2025.10.21 -->	
+
 </body>
-</html>
-
-
