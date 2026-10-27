@@ -1,18 +1,69 @@
 <head>
-	<title>SSC swim times</title>
+	<title>SSC swim timeslots</title>
 </head>
 <body bgcolor=black text=gray>
 <h3><b>Datums stunda:(rezervēts/kopā)</b></h3>
 <div id="out"></div>
 <script>
 const divOut = document.getElementById('out');
+const timeZone = "Europe/Riga";
+const zonedDateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  timeZone,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23"
+});
+const slotTimeFormatter = new Intl.DateTimeFormat("lv-LV", {
+  timeZone,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZoneName: "short"
+});
+
+function getZonedParts(date) {
+  return Object.fromEntries(zonedDateTimeFormatter.formatToParts(date)
+    .filter(part => part.type !== "literal")
+    .map(part => [part.type, Number(part.value)]));
+}
+
+function localMidnightToUtc(day) {
+  const [year, month, date] = day.split("-").map(Number);
+  const target = Date.UTC(year, month - 1, date);
+  let timestamp = target;
+
+  // Resolve local midnight using the zone's offset on that particular date.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const parts = getZonedParts(new Date(timestamp));
+    const representedAsUtc = Date.UTC(
+      parts.year, parts.month - 1, parts.day,
+      parts.hour, parts.minute, parts.second
+    );
+    const adjustment = target - representedAsUtc;
+    if (adjustment === 0) break;
+    timestamp += adjustment;
+  }
+
+  return new Date(timestamp).toISOString();
+}
+
+function addDays(day, amount) {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date + amount)).toISOString().slice(0, 10);
+}
 
 function fetchDay(day) {
-  // day is YYYY-MM-DD in local time (UTC+3). The API uses UTC bounds.
-  const from = new Date(day + "T00:00:00+03:00").toISOString();
-  const toD  = new Date(day + "T00:00:00+03:00");
-  toD.setUTCDate(toD.getUTCDate() + 1);
-  const to = toD.toISOString();
+  const dayOutput = document.createElement("div");
+  dayOutput.textContent = day;
+  divOut.appendChild(dayOutput);
+
+  // Convert each Riga midnight independently; a DST day may not be 24 hours.
+  const from = localMidnightToUtc(day);
+  const to = localMidnightToUtc(addDays(day, 1));
 
   fetch("https://eu.bookla.com/api/v1/client/companies/042fb9ab-5dd4-4b78-a8ac-d1229322e93d/services/09b3b303-fb77-45d9-bcf2-1434b672f679/times", {
     method: "POST",
@@ -24,8 +75,6 @@ function fetchDay(day) {
       "x-api-key": "gCLUIxLBgnfRK9A6CIGPtJXmqG09COpIEBFm"
     },
     body: JSON.stringify({
-      from: from,
-      to: to,
       resourceIDs: [],
       tickets: { "c9cd2168-2287-492b-914e-c4b01bd10ebc": 1 }
     })
@@ -45,7 +94,9 @@ function fetchDay(day) {
       slots.forEach(ts => {
         const start = ts.startTime || ts.start || ts.time;
         if (!start) return;
-        const hour = new Date(start).getUTCHours() + 3;
+        const startDate = new Date(start);
+        if (Number.isNaN(startDate.getTime())) return;
+        const localTime = slotTimeFormatter.format(startDate);
         let info;
         if (ts.spotsTotal !== undefined && ts.spotsTotal !== null)
           info = (ts.bookedSpots ?? 0) + "/" + ts.spotsTotal;
@@ -57,20 +108,18 @@ function fetchDay(day) {
           info = ts.available;
         else
           info = "?";
-        divOut.innerHTML += "&nbsp;&nbsp;&nbsp;" + hour + ":(" + info + ")";
+        dayOutput.append("   " + localTime + ":(" + info + ")");
       });
-      divOut.innerHTML += "\n<br><br>";
     })
     .catch(error => {
       console.error("Request error:", error);
     });
 }// EO fetchDay(day)
 
-const today = new Date();
+const todayParts = getZonedParts(new Date());
+const today = [todayParts.year, String(todayParts.month).padStart(2, "0"), String(todayParts.day).padStart(2, "0")].join("-");
 for (let i = 0; i < 3; i++) {
-  const d = new Date(today);
-  d.setDate(today.getDate() + i);
-  const day = d.toISOString().slice(0, 10);
+  const day = addDays(today, i);
   setTimeout(() => fetchDay(day), i * 1000);
 }
 
